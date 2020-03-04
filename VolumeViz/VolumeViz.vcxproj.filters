@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="OpenCLVolumeRenderer">
+      <UniqueIdentifier>{c3991fa4-f610-4cea-a49c-3ba14173467b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RenderWidget">
+      <UniqueIdentifier>{5a8e74e0-47be-4725-926c-904f990b345b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AbstractVolumeRenderer">
+      <UniqueIdentifier>{9c5c2ede-7ee7-4279-88bd-53a0598b1533}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kernels">
+      <UniqueIdentifier>{b9ab35ea-f697-46bc-b9e1-32f88210f729}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VolumeData">
+      <UniqueIdentifier>{125b0947-6d47-467d-9a87-dbb3d0a2612b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VolumeViz.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenCLVolumeRenderer.cpp">
+      <Filter>OpenCLVolumeRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderWidget.cpp">
+      <Filter>RenderWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractVolumeRenderer.cpp">
+      <Filter>AbstractVolumeRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="VolumeData.cpp">
+      <Filter>VolumeData</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="VolumeViz.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="VolumeViz.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="VolumeViz.qrc">
+      <Filter>Resource Files</Filter>
+    </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="VolumeViz.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="OpenCLVolumeRenderer.h">
+      <Filter>OpenCLVolumeRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderWidget.h">
+      <Filter>RenderWidget</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractVolumeRenderer.h">
+      <Filter>AbstractVolumeRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="VolumeData.h">
+      <Filter>VolumeData</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Kernels\kernel.cl">
+      <Filter>Kernels</Filter>
+    </None>
+  </ItemGroup>
+</Project>
