@@ -1,13 +1,10 @@
 #include "VolumeViz.h"
 #include <QtWidgets/QApplication>
 
-#include <qdir.h>
-#include <qfile.h>
-#include <qdebug.h>
+#include "TIFFStackVolumeDataLoader.h"
 
 int main(int argc, char *argv[])
 {
-
 	//////////////////////////////////////////////////////////////////////////
 	QApplication a(argc, argv);
 	VolumeViz w;

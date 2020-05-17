@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>701</width>
-    <height>431</height>
+    <width>1109</width>
+    <height>691</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>701</width>
+     <width>1109</width>
      <height>21</height>
     </rect>
    </property>
@@ -45,6 +45,29 @@
    </attribute>
    <widget class="QWidget" name="dockWidgetContents">
     <layout class="QGridLayout" name="gridLayout">
+     <item row="3" column="0">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>309</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="1" column="0">
+      <widget class="TransferFunctionEditorWidget" name="_tfEditorWidget" native="true">
+       <property name="minimumSize">
+        <size>
+         <width>480</width>
+         <height>340</height>
+        </size>
+       </property>
+      </widget>
+     </item>
      <item row="0" column="0">
       <widget class="QSplitter" name="splitter">
        <property name="orientation">
@@ -85,24 +108,26 @@
        </widget>
       </widget>
      </item>
-     <item row="1" column="0">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;- Double click to add a new control point&lt;/p&gt;&lt;p&gt;- Double click on a control point to change its color&lt;/p&gt;&lt;p&gt;- Right click on a control point to remove it&lt;/p&gt;&lt;p&gt;- Click and drag a control point to modify its values ( opacity, value )&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>309</height>
-        </size>
-       </property>
-      </spacer>
+      </widget>
      </item>
     </layout>
    </widget>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>TransferFunctionEditorWidget</class>
+   <extends>QWidget</extends>
+   <header>transferfunctioneditorwidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="VolumeViz.qrc"/>
  </resources>

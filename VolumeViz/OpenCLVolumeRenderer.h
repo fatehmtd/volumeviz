@@ -16,16 +16,28 @@ public:
 	virtual void setGLTexture(unsigned int) override;
 	virtual void init() override;
 	virtual void cleanup() override;
+	virtual void setVolumeData(VolumeData* vdata) override;
+	virtual void setViewport(int x, int y, int w, int h) override;
 protected:
 	cl::Context _context;
 	cl::CommandQueue _commandQueue;
 	cl::Kernel _volumeRenderingKernel;
+	cl::Kernel _postProcessingKernel;
 
 	// OpenCL Buffers
 	cl::Buffer _invModelViewProjectionMatrixBuffer;
-	cl::Buffer _transferFunctionPointsBuffer;
-	cl::Buffer _volumeDataBuffer;
+	cl::Image3D _volumeDataImage;
+	cl::Image1D _transferFunctionImage;
+
+	cl::Image2D _depthMapImage, _colorMapImage, _opacityMapImage;
 
 	cl::ImageGL _outputImage;
+
+	int _numTFControlPoints = 0;
+	cl_float3 _volumeScale;
+	cl_int3 _volumeDimensions;
+
+	// Inherited via AbstractVolumeRenderer
+	virtual void setTransferFunction(const QVector<QPair<QPointF, QColor>>& colors) override;
 };
 

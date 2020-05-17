@@ -23,9 +23,6 @@
       <Extensions>qrc;*</Extensions>
       <ParseFiles>false</ParseFiles>
     </Filter>
-    <Filter Include="OpenCLVolumeRenderer">
-      <UniqueIdentifier>{c3991fa4-f610-4cea-a49c-3ba14173467b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="RenderWidget">
       <UniqueIdentifier>{5a8e74e0-47be-4725-926c-904f990b345b}</UniqueIdentifier>
     </Filter>
@@ -38,16 +35,43 @@
     <Filter Include="VolumeData">
       <UniqueIdentifier>{125b0947-6d47-467d-9a87-dbb3d0a2612b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TransferFunctionEditorWidget">
+      <UniqueIdentifier>{8273d7e0-ae99-47fc-ae3d-1e34fa478fef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TransferFunctionEditorWidget\qcustomplot">
+      <UniqueIdentifier>{bae14f13-e827-4723-abae-00b1ff3881a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TransferFunctionEditorWidget\CurveEditor">
+      <UniqueIdentifier>{1da30c62-7d8a-43ed-84df-27d00573a8b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TransferFunctionEditorWidget\CurveEditor\TransparencyWidget">
+      <UniqueIdentifier>{96593b16-affe-4223-b801-e1d24cf57e6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TransferFunctionEditorWidget\CurveEditor\ColorWidget">
+      <UniqueIdentifier>{569f4708-92d5-4ef4-ac40-bd0a1c7f7ac6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VolumeData\VolumeDataLoader">
+      <UniqueIdentifier>{ee218acc-c074-48af-a695-1af321f16a4c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VolumeData\VolumeDataLoader\TIFFStack">
+      <UniqueIdentifier>{5a42bd45-4b09-4787-a749-da9e6bc4290f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VolumeData\VolumeDataLoader\BinVolumeDataLoader">
+      <UniqueIdentifier>{2c17d010-e160-41e9-a485-011b4736f905}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AbstractVolumeRenderer\OpenCLVolumeRenderer">
+      <UniqueIdentifier>{c3991fa4-f610-4cea-a49c-3ba14173467b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VolumeData\VolumeDataLoader\BasicVolumeDataLoader">
+      <UniqueIdentifier>{def0c62d-5c4d-4e60-bfb2-f3a317b7c688}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VolumeViz.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="OpenCLVolumeRenderer.cpp">
-      <Filter>OpenCLVolumeRenderer</Filter>
+      <Filter>AbstractVolumeRenderer\OpenCLVolumeRenderer</Filter>
     </ClCompile>
     <ClCompile Include="RenderWidget.cpp">
       <Filter>RenderWidget</Filter>
@@ -58,14 +82,62 @@
     <ClCompile Include="VolumeData.cpp">
       <Filter>VolumeData</Filter>
     </ClCompile>
+    <ClCompile Include="TransferFunctionEditorWidget.cpp">
+      <Filter>TransferFunctionEditorWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\qcustomplot\qcustomplot.cpp">
+      <Filter>TransferFunctionEditorWidget\qcustomplot</Filter>
+    </ClCompile>
+    <ClCompile Include="CurveEditorWidget.cpp">
+      <Filter>TransferFunctionEditorWidget\CurveEditor</Filter>
+    </ClCompile>
+    <ClCompile Include="ColorWidget.cpp">
+      <Filter>TransferFunctionEditorWidget\CurveEditor\ColorWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="TransparencyWidget.cpp">
+      <Filter>TransferFunctionEditorWidget\CurveEditor\TransparencyWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="VolumeDataLoader.cpp">
+      <Filter>VolumeData\VolumeDataLoader</Filter>
+    </ClCompile>
+    <ClCompile Include="TIFFStackVolumeDataLoader.cpp">
+      <Filter>VolumeData\VolumeDataLoader\TIFFStack</Filter>
+    </ClCompile>
+    <ClCompile Include="BinVolumeDataLoader.cpp">
+      <Filter>VolumeData\VolumeDataLoader\BinVolumeDataLoader</Filter>
+    </ClCompile>
+    <ClCompile Include="VolumeViz.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BasicVolumeDataLoader.cpp">
+      <Filter>VolumeData\VolumeDataLoader\BasicVolumeDataLoader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="VolumeViz.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="TransferFunctionEditorWidget.h">
+      <Filter>TransferFunctionEditorWidget</Filter>
+    </QtMoc>
+    <QtMoc Include="thirdparty\qcustomplot\qcustomplot.h">
+      <Filter>TransferFunctionEditorWidget\qcustomplot</Filter>
+    </QtMoc>
+    <QtMoc Include="CurveEditorWidget.h">
+      <Filter>TransferFunctionEditorWidget\CurveEditor</Filter>
+    </QtMoc>
+    <QtMoc Include="ColorWidget.h">
+      <Filter>TransferFunctionEditorWidget\CurveEditor\ColorWidget</Filter>
+    </QtMoc>
+    <QtMoc Include="TransparencyWidget.h">
+      <Filter>TransferFunctionEditorWidget\CurveEditor\TransparencyWidget</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="VolumeViz.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="TransferFunctionEditorWidget.ui">
       <Filter>Form Files</Filter>
     </QtUic>
   </ItemGroup>
@@ -79,7 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OpenCLVolumeRenderer.h">
-      <Filter>OpenCLVolumeRenderer</Filter>
+      <Filter>AbstractVolumeRenderer\OpenCLVolumeRenderer</Filter>
     </ClInclude>
     <ClInclude Include="RenderWidget.h">
       <Filter>RenderWidget</Filter>
@@ -89,6 +161,18 @@
     </ClInclude>
     <ClInclude Include="VolumeData.h">
       <Filter>VolumeData</Filter>
+    </ClInclude>
+    <ClInclude Include="VolumeDataLoader.h">
+      <Filter>VolumeData\VolumeDataLoader</Filter>
+    </ClInclude>
+    <ClInclude Include="TIFFStackVolumeDataLoader.h">
+      <Filter>VolumeData\VolumeDataLoader\TIFFStack</Filter>
+    </ClInclude>
+    <ClInclude Include="BinVolumeDataLoader.h">
+      <Filter>VolumeData\VolumeDataLoader\BinVolumeDataLoader</Filter>
+    </ClInclude>
+    <ClInclude Include="BasicVolumeDataLoader.h">
+      <Filter>VolumeData\VolumeDataLoader\BasicVolumeDataLoader</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -51,11 +51,11 @@
   </ImportGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <QtInstall>5.12.6</QtInstall>
-    <QtModules>core;gui;opengl;openglextensions;widgets</QtModules>
+    <QtModules>core;gui;opengl;openglextensions;printsupport;widgets</QtModules>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <QtInstall>5.12.6</QtInstall>
-    <QtModules>core;gui;opengl;openglextensions;widgets</QtModules>
+    <QtModules>core;gui;opengl;openglextensions;printsupport;widgets</QtModules>
   </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.props')">
     <Import Project="$(QtMsBuild)\qt.props" />
@@ -91,16 +91,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AbstractVolumeRenderer.cpp" />
+    <ClCompile Include="BasicVolumeDataLoader.cpp" />
+    <ClCompile Include="BinVolumeDataLoader.cpp" />
+    <ClCompile Include="ColorWidget.cpp" />
+    <ClCompile Include="CurveEditorWidget.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OpenCLVolumeRenderer.cpp" />
     <ClCompile Include="RenderWidget.cpp" />
+    <ClCompile Include="thirdparty\qcustomplot\qcustomplot.cpp" />
+    <ClCompile Include="TIFFStackVolumeDataLoader.cpp" />
+    <ClCompile Include="TransferFunctionEditorWidget.cpp" />
+    <ClCompile Include="TransparencyWidget.cpp" />
     <ClCompile Include="VolumeData.cpp" />
+    <ClCompile Include="VolumeDataLoader.cpp" />
     <ClCompile Include="VolumeViz.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="VolumeViz.h" />
   </ItemGroup>
   <ItemGroup>
+    <QtUic Include="TransferFunctionEditorWidget.ui" />
     <QtUic Include="VolumeViz.ui" />
   </ItemGroup>
   <ItemGroup>
@@ -111,8 +121,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbstractVolumeRenderer.h" />
+    <ClInclude Include="BasicVolumeDataLoader.h" />
+    <ClInclude Include="BinVolumeDataLoader.h" />
+    <ClInclude Include="VolumeDataLoader.h" />
+    <QtMoc Include="CurveEditorWidget.h" />
+    <QtMoc Include="ColorWidget.h" />
     <ClInclude Include="OpenCLVolumeRenderer.h" />
     <ClInclude Include="RenderWidget.h" />
+    <QtMoc Include="TransferFunctionEditorWidget.h" />
+    <QtMoc Include="thirdparty\qcustomplot\qcustomplot.h" />
+    <QtMoc Include="TransparencyWidget.h" />
+    <ClInclude Include="TIFFStackVolumeDataLoader.h" />
     <ClInclude Include="VolumeData.h" />
   </ItemGroup>
   <ItemGroup>

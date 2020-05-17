@@ -4,7 +4,7 @@
 #include <fstream>
 #include <QDebug>
 
-extern const char* getErrorString(cl_int error)
+const char* getOCLErrorString(cl_int error)
 {
 	switch (error) {
 		// run-time and JIT compiler errors
@@ -81,12 +81,13 @@ extern const char* getErrorString(cl_int error)
 	}
 }
 
-extern void printError(cl_int error)
+void checkOCLError(cl_int error)
 {
 	if (error != CL_SUCCESS)
-		qDebug() << getErrorString(error);
-
-	assert(error == CL_SUCCESS);
+	{
+		qDebug() << getOCLErrorString(error);
+	}
+	assert(error != CL_SUCCESS);
 }
 
 void OpenCLVolumeRenderer::setGLTexture(unsigned int textureId)
@@ -129,9 +130,11 @@ void OpenCLVolumeRenderer::init()
 	if (error != CL_SUCCESS)
 	{
 		qDebug() << "Compilation error : " << error << program.getBuildInfo< CL_PROGRAM_BUILD_LOG>(_devices[0]).c_str();
+		checkOCLError(error);
 	}
 
-	_volumeRenderingKernel = cl::Kernel(program, "volumeRenderingKernel");
+	_volumeRenderingKernel = cl::Kernel(program, "volumeRenderingKernelProgressive");
+	_postProcessingKernel = cl::Kernel(program, "postProcessingKernel");
 
 	// Create the buffers
 	_invModelViewProjectionMatrixBuffer = cl::Buffer(_context, CL_MEM_READ_ONLY, sizeof(glm::float4) * 4);
@@ -142,46 +145,183 @@ void OpenCLVolumeRenderer::cleanup()
 
 }
 
+void OpenCLVolumeRenderer::setVolumeData(VolumeData* vdata)
+{
+	if (vdata == nullptr) return;
+	_volumeDataImage = cl::Image3D(_context,
+		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+		cl::ImageFormat(CL_INTENSITY, CL_UNORM_INT8),
+		vdata->_nxyz.x, vdata->_nxyz.y, vdata->_nxyz.z, 
+		0, 0, vdata->_data);
+	AbstractVolumeRenderer::setVolumeData(vdata);
+	//requestBuffersUpdate();
+}
+
+void OpenCLVolumeRenderer::setViewport(int x, int y, int w, int h)
+{
+	AbstractVolumeRenderer::setViewport(x, y, w, h);
+
+	_depthMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE , cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
+	_opacityMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE , cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
+	_colorMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_RGBA, CL_FLOAT), w, h);
+	requestBuffersUpdate();
+}
+
+void OpenCLVolumeRenderer::setTransferFunction(const QVector<QPair<QPointF, QColor>>& colors)
+{
+	// OpenCL structures
+	struct TFControlPoint
+	{
+		cl_float4 value_opacity;
+		cl_float4 rgb;
+	};
+
+	_numTFControlPoints = colors.size();
+
+	TFControlPoint* controlPoints = new TFControlPoint[_numTFControlPoints];
+	for (int i = 0; i < _numTFControlPoints; i++)
+	{
+		auto& cPoint = controlPoints[i];
+		const auto& inputCPoint = colors[i];
+		cPoint.value_opacity.x = inputCPoint.first.x();
+		cPoint.value_opacity.y = inputCPoint.first.y();
+		cPoint.rgb.x = inputCPoint.second.redF();
+		cPoint.rgb.y = inputCPoint.second.greenF();
+		cPoint.rgb.z = inputCPoint.second.blueF();
+		cPoint.rgb.w = inputCPoint.first.y();
+	}
+
+	const int resolution = 1024; // the resolution of the 1d texture that holds the transfer function colors
+	const int nchannels = 4; // RGBA 4-channels
+
+	const float invResolution = 1.0f / (float)resolution;
+
+	float* tfColorsBuffer = new float[resolution * nchannels];
+	for (int i = 0; i < resolution; i++)
+	{
+		const int colorIndex = i * nchannels;
+		const float t = i * invResolution;
+
+		bool segmentFound = false;
+		for (int j = 0; j < _numTFControlPoints - 1; j++)
+		{
+			if (controlPoints[j].value_opacity.x <= t && controlPoints[j + 1].value_opacity.x >= t)
+			{
+				const auto& currentCP = controlPoints[j];
+				const auto& nextCP = controlPoints[j + 1];
+
+				const float interp = (t - currentCP.value_opacity.x) / (nextCP.value_opacity.x - currentCP.value_opacity.x);
+
+				tfColorsBuffer[colorIndex] = glm::lerp(currentCP.rgb.x, nextCP.rgb.x, interp);
+				tfColorsBuffer[colorIndex + 1] = glm::lerp(currentCP.rgb.y, nextCP.rgb.y, interp);
+				tfColorsBuffer[colorIndex + 2] = glm::lerp(currentCP.rgb.z, nextCP.rgb.z, interp);
+				tfColorsBuffer[colorIndex + 3] = glm::lerp(currentCP.value_opacity.y, nextCP.value_opacity.y, interp);
+				segmentFound = true;
+				break;
+			}
+		}
+
+		if (!segmentFound)
+		{
+			const auto& lastCP = controlPoints[_numTFControlPoints - 1];
+			tfColorsBuffer[colorIndex] = lastCP.rgb.x;
+			tfColorsBuffer[colorIndex + 1] = lastCP.rgb.y;
+			tfColorsBuffer[colorIndex + 2] = lastCP.rgb.z;
+			tfColorsBuffer[colorIndex + 3] = lastCP.value_opacity.y;
+		}
+	}
+	_transferFunctionImage = cl::Image1D(_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, cl::ImageFormat(CL_RGBA, CL_FLOAT), resolution, tfColorsBuffer);
+
+	delete[] tfColorsBuffer;
+	delete[] controlPoints;
+
+	requestBuffersUpdate();
+}
+
 void OpenCLVolumeRenderer::render()
 {
+	if (!_renderingStatus) return;
+	if (_vdata == nullptr) return;
+	if (_numTFControlPoints < 2) return;
+	int result = 0;
+
 	cl::Event event;
+
+	////////////////////////////////////////////////////////////////////////////////////////////
+	// Ray marching kernel
+
+	// Write the parameters to the gpu
+	result = _commandQueue.enqueueWriteBuffer(_invModelViewProjectionMatrixBuffer, true, 0, sizeof(glm::float4) * 4, &_invModelViewProjectionMatrix[0], nullptr);
+	checkOCLError(result);
+
+	// Set the kernel arguments
+	result = _volumeRenderingKernel.setArg(0, _invModelViewProjectionMatrixBuffer);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(1, glm::float4(_position, 0.0f));
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(2, glm::int4(_x, _y, _width, _height));
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(3, _volumeDataImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(4, glm::int4(_vdata->_nxyz, 0));
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(5, glm::float4(_vdata->_sxyz, 0));
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(6, glm::float2(_vdata->_min, _vdata->_max));
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(7, _transferFunctionImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(8, _depthMapImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(9, _opacityMapImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(10, _colorMapImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(11, (int)_updateRequested);
+	checkOCLError(result);
+
+	//*/
+	// Launch the kernel
+	cl::NDRange localRange(8, 8);
+	cl::NDRange globalRange(2048, 2048);
+
+	result = _commandQueue.enqueueNDRangeKernel(_volumeRenderingKernel, cl::NullRange, globalRange, localRange, nullptr, &event);
+	checkOCLError(result);
+	result = event.wait();
+	checkOCLError(result);
+
+	////////////////////////////////////////////////////////////////////////////////////////////
+	// Post Processing kernel
 	// Enqueue the OpenGL shared objects
 	std::vector<cl::Memory> memObjects;
 	memObjects.push_back(_outputImage);
 
-	int result = _commandQueue.enqueueAcquireGLObjects(&memObjects, nullptr, &event);
-	printError(result);
+	// Acquire the opengl texture so it can be used by the kernel
+	result = _commandQueue.enqueueAcquireGLObjects(&memObjects, nullptr, &event);
+	checkOCLError(result);
 	result = event.wait();
-	printError(result);
+	checkOCLError(result);
 
-	// Prepare the kernel's arguments
-	result = _volumeRenderingKernel.setArg(0, _outputImage);
-	printError(result);
+	result = _postProcessingKernel.setArg(0, _outputImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(1, _depthMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(2, _opacityMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(3, _colorMapImage);
+	checkOCLError(result);
 
-	result = _commandQueue.enqueueWriteBuffer(_invModelViewProjectionMatrixBuffer, true, 0, sizeof(glm::float4) * 4, &_invModelViewProjectionMatrix[0], nullptr);
-	printError(result);
-
-	result = _volumeRenderingKernel.setArg(1, _invModelViewProjectionMatrixBuffer);
-	printError(result);
-
-	result = _volumeRenderingKernel.setArg(2, glm::float4(_modelViewMatrix[3][0], _modelViewMatrix[3][1], _modelViewMatrix[3][2], 0.0f));
-	printError(result);
-
-	result = _volumeRenderingKernel.setArg(3, glm::int4(_x, _y, _width, _height));
-	printError(result);
-
-	// Launch the kernel
-	cl::NDRange localRange(16, 16);
-	cl::NDRange globalRange(4096, 4096);
-
-	result = _commandQueue.enqueueNDRangeKernel(_volumeRenderingKernel, cl::NullRange, globalRange, localRange, nullptr, &event);
-	printError(result);
+	// launch the kernel
+	result = _commandQueue.enqueueNDRangeKernel(_postProcessingKernel, cl::NullRange, globalRange, localRange, nullptr, &event);
+	checkOCLError(result);
 	result = event.wait();
-	printError(result);
+	checkOCLError(result);
 
 	// Wait for the kernel to finish and release the OpenGL shared objects
 	result = _commandQueue.enqueueReleaseGLObjects(&memObjects, nullptr, &event);
-	printError(result);
+	checkOCLError(result);
 	result = event.wait();
-	printError(result);
+	checkOCLError(result);
+
+	_updateRequested = false;
 }

@@ -1,4 +1,5 @@
 <RCC>
-    <qresource prefix="VolumeViz">
+    <qresource prefix="/VolumeViz">
+        <file alias="colorCircle">Resources/color-circle.svg</file>
     </qresource>
 </RCC>

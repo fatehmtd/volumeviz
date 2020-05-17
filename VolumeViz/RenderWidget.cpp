@@ -5,13 +5,21 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <QSurface>
+#include <QSurfaceFormat>
+
 #define PRINT_GL_ERROR() {auto err= glGetError(); if(err != GL_NO_ERROR){ qDebug() << "Error : "<< err <<", LINE : " << __LINE__ ;}}
 
 //////////////////////////////////////////////////////////////////////////
 RenderWidget::RenderWidget(QWidget* parent) : QOpenGLWidget(parent)
 {
-	setAutoFillBackground(false);
-	setMinimumSize(320, 240);
+	QSurfaceFormat format;
+	format.setSamples(0);
+	format.setRenderableType(QSurfaceFormat::RenderableType::OpenGL);
+	QOpenGLWidget::setFormat(format);
+
+	//setAutoFillBackground(false);
+	setMinimumSize(640, 480);
 
 	connect(&_timer, &QTimer::timeout, [=]()
 		{
@@ -32,20 +40,48 @@ RenderWidget::~RenderWidget()
 	glDeleteProgram(_shaderProgram);
 }
 
+void RenderWidget::setVolume(VolumeData* volumeData)
+{
+	_volumeData = volumeData;
+	if (_volumeRenderer != nullptr)
+	{
+		_volumeRenderer->setVolumeData(volumeData);
+	}
+}
+
 void RenderWidget::setVolumeRenderer(AbstractVolumeRenderer* volumeRenderer)
 {
 	_volumeRenderer = volumeRenderer;
 	if (_volumeRenderer != nullptr)
 	{
 		_volumeRenderer->setGLTexture(_textureId);
+		//_volumeRenderer->setTransferFunction(_transferFunction);
+		//_volumeRenderer->setVolumeData(_volumeData);
 	}
+}
+
+void RenderWidget::setTransferFunction(const TransferFunction& tfColors)
+{
+	if (tfColors.size() < 2) return;
+
+	_transferFunction = tfColors;
+
+	if (_volumeRenderer != nullptr)
+	{
+		_volumeRenderer->setTransferFunction(tfColors);
+	}
+}
+
+AbstractVolumeRenderer* RenderWidget::getCurrentVolumeRenderer() const
+{
+	return _volumeRenderer;
 }
 
 void RenderWidget::initializeGL()
 {
 	initializeOpenGLFunctions();
 	QOpenGLWidget::initializeGL();
-
+	glDisable(GL_MULTISAMPLE);
 	createScreenQuad();
 }
 
@@ -58,22 +94,22 @@ void RenderWidget::resizeGL(int w, int h)
 
 void RenderWidget::paintGL()
 {
-	static float angle = 0.0f;
-	float zoom = 500.0f;
-	glm::quat rotation(glm::float3(0, angle, 0));
+	glm::quat rotation(glm::float3(_angleX, _angleY, 0));
 
-	//angle += 0.01f;
+	const glm::vec3 upVector(0, 1, 0);
+	glm::float3 _position(0, 0, _zoom), _target(0, 0, 0);
 
-	glm::vec3 eye(0, 0, zoom);
-	glm::vec3 center(0, 0, 0);
+	glm::float3 vecDir3 = _target - _position;
+	_position = _target + rotation * vecDir3;
 
-	eye = center + rotation * (center-eye);
+	const glm::mat4 viewMatrix = glm::lookAt(_position, _target, rotation * upVector);
 
 	if (_volumeRenderer != nullptr)
 	{
+		_volumeRenderer->setViewPosition(_position);
 		_volumeRenderer->setMatrices(
-			glm::lookAt(eye, center, rotation * glm::vec3(0, 1, 0)),
-			glm::perspective(70.0f * 3.14f / 180.0f, float(width())/float(height()), 1.0f, 999999.0f));
+			viewMatrix,
+			glm::perspective(45.0f * 3.14f / 180.0f, float(width()) / float(height()), 1.0f, 999999.0f));
 	}
 
 	glClearColor(0, 0, 0, 1.0f);
@@ -114,8 +150,8 @@ void RenderWidget::createTexture(int w, int h)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	auto pixels = new unsigned char[4 * w*h];
-	memset(pixels, 255, sizeof(unsigned char) * 4 * w*h);
+	auto pixels = new unsigned char[4 * w * h];
+	memset(pixels, 255, sizeof(unsigned char) * 4 * w * h);
 
 	glm::vec4 gradientTop(211, 0, 211, 255);
 	glm::vec4 gradientBottom(255, 255, 255, 255);
@@ -124,7 +160,7 @@ void RenderWidget::createTexture(int w, int h)
 	{
 		const float t = (float)j / (float)h;
 		auto color = t * gradientBottom + gradientTop * (1.0f - t);
-		
+
 		for (int i = 0; i < w; i++)
 		{
 			auto pixel = &pixels[(i + j * w) * 4];
@@ -143,13 +179,16 @@ void RenderWidget::createTexture(int w, int h)
 	{
 		_volumeRenderer->setGLTexture(_textureId);
 		_volumeRenderer->setViewport(0, 0, w, h);
+
+		if (_volumeRenderer != nullptr)
+			_volumeRenderer->requestBuffersUpdate();
 	}
 }
 
 void RenderWidget::createScreenQuad()
 {
 	//////////////////////////////////////////////////////////////////////////
-	const float vertices[] = {
+	static const float vertices[] = {
 		 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 		 0.0f, 1, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
 		 1, 1, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -217,4 +256,55 @@ void RenderWidget::createScreenQuad()
 	glEnableVertexAttribArray(0); // position
 	glEnableVertexAttribArray(1); // color
 	glEnableVertexAttribArray(2); // texcoords
+}
+
+void RenderWidget::mousePressEvent(QMouseEvent* event)
+{
+	_prevClick = event->pos();
+	switch (event->button())
+	{
+	case Qt::MouseButton::LeftButton:
+		_leftButtonPressed = true;
+		break;
+	case Qt::MouseButton::RightButton:
+		_rightButtonPressed = true;
+		break;
+	}	
+}
+
+void RenderWidget::mouseReleaseEvent(QMouseEvent* event)
+{
+	_rightButtonPressed = false;
+	_leftButtonPressed = false;
+}
+
+void RenderWidget::mouseMoveEvent(QMouseEvent* event)
+{
+	if (_leftButtonPressed)
+	{
+		_angleY -= 3.75f * 3.14f * (float)(event->pos().x() - _prevClick.x()) / (float)width();
+		_angleX -= 3.75f * 3.14f * (float)(event->pos().y() - _prevClick.y()) / (float)height();
+		_prevClick = event->pos();
+	}
+
+	if (_rightButtonPressed)
+	{
+		_zoom -= 5550.0f * (float)(event->pos().y() - _prevClick.y()) / (float)height();
+		if (_zoom < _minZoom)
+			_zoom = _minZoom;
+		_prevClick = event->pos();
+	}
+
+	if (_volumeRenderer != nullptr)
+		_volumeRenderer->requestBuffersUpdate();
+}
+
+void RenderWidget::wheelEvent(QWheelEvent* event)
+{
+	_zoom -= (float)event->delta() * 0.5f;
+	if (_zoom < _minZoom)
+		_zoom = _minZoom;
+
+	if (_volumeRenderer != nullptr)
+		_volumeRenderer->requestBuffersUpdate();
 }

@@ -26,7 +26,23 @@ void AbstractVolumeRenderer::setMatrices(glm::mat4x4 modelViewMatrix, glm::mat4x
 	_invModelViewProjectionMatrix = glm::inverse(_projectionMatrix*_modelViewMatrix);
 }
 
+void AbstractVolumeRenderer::setViewPosition(glm::vec3 position)
+{
+	_position = position;
+}
+
 void AbstractVolumeRenderer::setVolumeData(VolumeData* vdata)
 {
+	if (vdata == nullptr) return;
 	_vdata = vdata;
+}
+
+void AbstractVolumeRenderer::requestBuffersUpdate()
+{
+	_updateRequested = true;
+}
+
+void AbstractVolumeRenderer::setRenderingStatus(bool status)
+{
+	this->_renderingStatus = status;
 }
