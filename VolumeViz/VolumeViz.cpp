@@ -1,7 +1,6 @@
 #include "VolumeViz.h"
 #include "OpenCLVolumeRenderer.h"
 #include "VolumeData.h"
-
 #include "BasicVolumeDataLoader.h"
 
 VolumeViz::VolumeViz(QWidget *parent)
@@ -49,7 +48,9 @@ void VolumeViz::initRenderingSystem()
 void VolumeViz::loadVolume()
 {
 	BasicVolumeDataLoader loader;
-	_volumeData = loader.load("sample-small");
+	//_volumeData = loader.load("sample-small");
+	//_volumeData = loader.load("data/cat");
+	_volumeData = loader.load("data/didel");
 
 	_volumeRenderer->setVolumeData(_volumeData);
 	_volumeRenderer->setTransferFunction(ui._tfEditorWidget->getCurveEditorWidget()->getTransferFunction());

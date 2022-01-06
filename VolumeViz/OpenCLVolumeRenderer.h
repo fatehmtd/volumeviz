@@ -18,18 +18,24 @@ public:
 	virtual void cleanup() override;
 	virtual void setVolumeData(VolumeData* vdata) override;
 	virtual void setViewport(int x, int y, int w, int h) override;
+private:
+	void mainRenderPass();
+	void ssaoPass();
+	void postProcessingPass();
+
 protected:
 	cl::Context _context;
 	cl::CommandQueue _commandQueue;
 	cl::Kernel _volumeRenderingKernel;
 	cl::Kernel _postProcessingKernel;
+	cl::Kernel _ssaoKernel;
 
 	// OpenCL Buffers
 	cl::Buffer _invModelViewProjectionMatrixBuffer;
 	cl::Image3D _volumeDataImage;
 	cl::Image1D _transferFunctionImage;
 
-	cl::Image2D _depthMapImage, _colorMapImage, _opacityMapImage;
+	cl::Image2D _depthMapImage, _colorMapImage, _opacityMapImage, _normalMapImage, _densityMapImage, _positionMapImage, _occlusionMapImage;
 
 	cl::ImageGL _outputImage;
 

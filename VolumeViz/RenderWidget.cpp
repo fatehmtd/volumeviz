@@ -81,7 +81,7 @@ void RenderWidget::initializeGL()
 {
 	initializeOpenGLFunctions();
 	QOpenGLWidget::initializeGL();
-	glDisable(GL_MULTISAMPLE);
+	//glDisable(GL_MULTISAMPLE);
 	createScreenQuad();
 }
 
@@ -109,7 +109,7 @@ void RenderWidget::paintGL()
 		_volumeRenderer->setViewPosition(_position);
 		_volumeRenderer->setMatrices(
 			viewMatrix,
-			glm::perspective(45.0f * 3.14f / 180.0f, float(width()) / float(height()), 1.0f, 999999.0f));
+			glm::perspective(35.0f * 3.14f / 180.0f, float(width()) / float(height()), 1.0f, 999999.0f));
 	}
 
 	glClearColor(0, 0, 0, 1.0f);
@@ -147,8 +147,8 @@ void RenderWidget::createTexture(int w, int h)
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	auto pixels = new unsigned char[4 * w * h];
 	memset(pixels, 255, sizeof(unsigned char) * 4 * w * h);
@@ -224,12 +224,12 @@ void RenderWidget::createScreenQuad()
 	_vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(_vertexShader, 1, &vertexShaderSource, nullptr);
 	glCompileShader(_vertexShader);
-	PRINT_GL_ERROR()
-		_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	PRINT_GL_ERROR();
+	_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(_fragmentShader, 1, &fragmentShaderSource, nullptr);
 	glCompileShader(_fragmentShader);
-	PRINT_GL_ERROR()
-		_shaderProgram = glCreateProgram();
+	PRINT_GL_ERROR();
+	_shaderProgram = glCreateProgram();
 	glAttachShader(_shaderProgram, _vertexShader);
 	glAttachShader(_shaderProgram, _fragmentShader);
 	glLinkProgram(_shaderProgram);
@@ -269,7 +269,7 @@ void RenderWidget::mousePressEvent(QMouseEvent* event)
 	case Qt::MouseButton::RightButton:
 		_rightButtonPressed = true;
 		break;
-	}	
+	}
 }
 
 void RenderWidget::mouseReleaseEvent(QMouseEvent* event)

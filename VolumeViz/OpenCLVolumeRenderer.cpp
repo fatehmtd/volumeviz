@@ -133,8 +133,9 @@ void OpenCLVolumeRenderer::init()
 		checkOCLError(error);
 	}
 
-	_volumeRenderingKernel = cl::Kernel(program, "volumeRenderingKernelProgressive");
+	_volumeRenderingKernel = cl::Kernel(program, "volumeRenderingKernelProgressiveAlt");
 	_postProcessingKernel = cl::Kernel(program, "postProcessingKernel");
+	_ssaoKernel = cl::Kernel(program, "ssaoKernel");
 
 	// Create the buffers
 	_invModelViewProjectionMatrixBuffer = cl::Buffer(_context, CL_MEM_READ_ONLY, sizeof(glm::float4) * 4);
@@ -151,7 +152,7 @@ void OpenCLVolumeRenderer::setVolumeData(VolumeData* vdata)
 	_volumeDataImage = cl::Image3D(_context,
 		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		cl::ImageFormat(CL_INTENSITY, CL_UNORM_INT8),
-		vdata->_nxyz.x, vdata->_nxyz.y, vdata->_nxyz.z, 
+		vdata->_nxyz.x, vdata->_nxyz.y, vdata->_nxyz.z,
 		0, 0, vdata->_data);
 	AbstractVolumeRenderer::setVolumeData(vdata);
 	//requestBuffersUpdate();
@@ -161,88 +162,18 @@ void OpenCLVolumeRenderer::setViewport(int x, int y, int w, int h)
 {
 	AbstractVolumeRenderer::setViewport(x, y, w, h);
 
-	_depthMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE , cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
-	_opacityMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE , cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
+	_depthMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
+	_opacityMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
 	_colorMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_RGBA, CL_FLOAT), w, h);
+	_normalMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_RGBA, CL_FLOAT), w, h);
+	_densityMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
+	_positionMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_RGBA, CL_FLOAT), w, h);
+	_occlusionMapImage = cl::Image2D(_context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_INTENSITY, CL_FLOAT), w, h);
 	requestBuffersUpdate();
 }
 
-void OpenCLVolumeRenderer::setTransferFunction(const QVector<QPair<QPointF, QColor>>& colors)
+void OpenCLVolumeRenderer::mainRenderPass()
 {
-	// OpenCL structures
-	struct TFControlPoint
-	{
-		cl_float4 value_opacity;
-		cl_float4 rgb;
-	};
-
-	_numTFControlPoints = colors.size();
-
-	TFControlPoint* controlPoints = new TFControlPoint[_numTFControlPoints];
-	for (int i = 0; i < _numTFControlPoints; i++)
-	{
-		auto& cPoint = controlPoints[i];
-		const auto& inputCPoint = colors[i];
-		cPoint.value_opacity.x = inputCPoint.first.x();
-		cPoint.value_opacity.y = inputCPoint.first.y();
-		cPoint.rgb.x = inputCPoint.second.redF();
-		cPoint.rgb.y = inputCPoint.second.greenF();
-		cPoint.rgb.z = inputCPoint.second.blueF();
-		cPoint.rgb.w = inputCPoint.first.y();
-	}
-
-	const int resolution = 1024; // the resolution of the 1d texture that holds the transfer function colors
-	const int nchannels = 4; // RGBA 4-channels
-
-	const float invResolution = 1.0f / (float)resolution;
-
-	float* tfColorsBuffer = new float[resolution * nchannels];
-	for (int i = 0; i < resolution; i++)
-	{
-		const int colorIndex = i * nchannels;
-		const float t = i * invResolution;
-
-		bool segmentFound = false;
-		for (int j = 0; j < _numTFControlPoints - 1; j++)
-		{
-			if (controlPoints[j].value_opacity.x <= t && controlPoints[j + 1].value_opacity.x >= t)
-			{
-				const auto& currentCP = controlPoints[j];
-				const auto& nextCP = controlPoints[j + 1];
-
-				const float interp = (t - currentCP.value_opacity.x) / (nextCP.value_opacity.x - currentCP.value_opacity.x);
-
-				tfColorsBuffer[colorIndex] = glm::lerp(currentCP.rgb.x, nextCP.rgb.x, interp);
-				tfColorsBuffer[colorIndex + 1] = glm::lerp(currentCP.rgb.y, nextCP.rgb.y, interp);
-				tfColorsBuffer[colorIndex + 2] = glm::lerp(currentCP.rgb.z, nextCP.rgb.z, interp);
-				tfColorsBuffer[colorIndex + 3] = glm::lerp(currentCP.value_opacity.y, nextCP.value_opacity.y, interp);
-				segmentFound = true;
-				break;
-			}
-		}
-
-		if (!segmentFound)
-		{
-			const auto& lastCP = controlPoints[_numTFControlPoints - 1];
-			tfColorsBuffer[colorIndex] = lastCP.rgb.x;
-			tfColorsBuffer[colorIndex + 1] = lastCP.rgb.y;
-			tfColorsBuffer[colorIndex + 2] = lastCP.rgb.z;
-			tfColorsBuffer[colorIndex + 3] = lastCP.value_opacity.y;
-		}
-	}
-	_transferFunctionImage = cl::Image1D(_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, cl::ImageFormat(CL_RGBA, CL_FLOAT), resolution, tfColorsBuffer);
-
-	delete[] tfColorsBuffer;
-	delete[] controlPoints;
-
-	requestBuffersUpdate();
-}
-
-void OpenCLVolumeRenderer::render()
-{
-	if (!_renderingStatus) return;
-	if (_vdata == nullptr) return;
-	if (_numTFControlPoints < 2) return;
 	int result = 0;
 
 	cl::Event event;
@@ -277,7 +208,14 @@ void OpenCLVolumeRenderer::render()
 	checkOCLError(result);
 	result = _volumeRenderingKernel.setArg(10, _colorMapImage);
 	checkOCLError(result);
-	result = _volumeRenderingKernel.setArg(11, (int)_updateRequested);
+	result = _volumeRenderingKernel.setArg(11, _normalMapImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(12, _densityMapImage);
+	checkOCLError(result);
+	result = _volumeRenderingKernel.setArg(13, _positionMapImage);
+	checkOCLError(result);
+
+	result = _volumeRenderingKernel.setArg(14, (int)_updateRequested);
 	checkOCLError(result);
 
 	//*/
@@ -289,15 +227,45 @@ void OpenCLVolumeRenderer::render()
 	checkOCLError(result);
 	result = event.wait();
 	checkOCLError(result);
+}
 
+void OpenCLVolumeRenderer::ssaoPass()
+{
+	// Launch the kernel
+	cl::NDRange localRange(8, 8);
+	cl::NDRange globalRange(2048, 2048);
+	cl::Event event;
+
+	int result = _ssaoKernel.setArg(0, _occlusionMapImage);
+	checkOCLError(result);
+	result = _ssaoKernel.setArg(1, _depthMapImage);
+	checkOCLError(result);
+	result = _ssaoKernel.setArg(2, _opacityMapImage);
+	checkOCLError(result);
+
+	// launch the kernel
+	result = _commandQueue.enqueueNDRangeKernel(_ssaoKernel, cl::NullRange, globalRange, localRange, nullptr, &event);
+	checkOCLError(result);
+	result = event.wait();
+	checkOCLError(result);
+}
+
+void OpenCLVolumeRenderer::postProcessingPass()
+{
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// Post Processing kernel
 	// Enqueue the OpenGL shared objects
 	std::vector<cl::Memory> memObjects;
 	memObjects.push_back(_outputImage);
 
+	cl::Event event;
+
+	// Launch the kernel
+	cl::NDRange localRange(8, 8);
+	cl::NDRange globalRange(2048, 2048);
+
 	// Acquire the opengl texture so it can be used by the kernel
-	result = _commandQueue.enqueueAcquireGLObjects(&memObjects, nullptr, &event);
+	int result = _commandQueue.enqueueAcquireGLObjects(&memObjects, nullptr, &event);
 	checkOCLError(result);
 	result = event.wait();
 	checkOCLError(result);
@@ -310,6 +278,16 @@ void OpenCLVolumeRenderer::render()
 	checkOCLError(result);
 	result = _postProcessingKernel.setArg(3, _colorMapImage);
 	checkOCLError(result);
+	result = _postProcessingKernel.setArg(4, _normalMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(5, _densityMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(6, _positionMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(7, _occlusionMapImage);
+	checkOCLError(result);
+	result = _postProcessingKernel.setArg(8, _transferFunctionImage);
+	checkOCLError(result);
 
 	// launch the kernel
 	result = _commandQueue.enqueueNDRangeKernel(_postProcessingKernel, cl::NullRange, globalRange, localRange, nullptr, &event);
@@ -318,10 +296,97 @@ void OpenCLVolumeRenderer::render()
 	checkOCLError(result);
 
 	// Wait for the kernel to finish and release the OpenGL shared objects
-	result = _commandQueue.enqueueReleaseGLObjects(&memObjects, nullptr, &event);
+	result = _commandQueue.enqueueReleaseGLObjects(&memObjects, nullptr, nullptr);
 	checkOCLError(result);
 	result = event.wait();
 	checkOCLError(result);
+}
+
+void OpenCLVolumeRenderer::setTransferFunction(const QVector<QPair<QPointF, QColor>>& colors)
+{
+	// OpenCL structures
+	struct TFControlPoint
+	{
+		cl_float4 value_opacity;
+		cl_float4 rgb;
+	};
+
+	_numTFControlPoints = colors.size();
+
+	TFControlPoint* controlPoints = new TFControlPoint[_numTFControlPoints];
+	for (int i = 0; i < _numTFControlPoints; i++)
+	{
+		auto& cPoint = controlPoints[i];
+		const auto& inputCPoint = colors[i];
+		cPoint.value_opacity.x = inputCPoint.first.x();
+		cPoint.value_opacity.y = inputCPoint.first.y();
+		cPoint.rgb.x = inputCPoint.second.redF();
+		cPoint.rgb.y = inputCPoint.second.greenF();
+		cPoint.rgb.z = inputCPoint.second.blueF();
+		cPoint.rgb.w = inputCPoint.first.y();
+	}
+
+	const int resolution = 1024; // the resolution of the 1d texture that holds the transfer function colors
+	const int nchannels = 4; // RGBA 4-channels
+
+	const float invResolution = 1.0f / (float)resolution;
+
+	float* tfColorsBuffer = new float[resolution * nchannels];
+
+	for (int i = 0; i < resolution; i++)
+	{
+		const int colorIndex = i * nchannels;
+		const float t = i * invResolution;
+		
+		// linear interpolation
+		
+		bool segmentFound = false;
+		for (int j = 0; j < _numTFControlPoints - 1; j++)
+		{
+			if (controlPoints[j].value_opacity.x <= t && controlPoints[j + 1].value_opacity.x >= t)
+			{
+				const auto& currentCP = controlPoints[j];
+				const auto& nextCP = controlPoints[j + 1];
+
+				const float interp = (t - currentCP.value_opacity.x) / (nextCP.value_opacity.x - currentCP.value_opacity.x);
+
+				tfColorsBuffer[colorIndex] = glm::lerp(currentCP.rgb.x, nextCP.rgb.x, interp);
+				tfColorsBuffer[colorIndex + 1] = glm::lerp(currentCP.rgb.y, nextCP.rgb.y, interp);
+				tfColorsBuffer[colorIndex + 2] = glm::lerp(currentCP.rgb.z, nextCP.rgb.z, interp);
+				tfColorsBuffer[colorIndex + 3] = glm::lerp(currentCP.value_opacity.y, nextCP.value_opacity.y, interp);
+				segmentFound = true;
+				break;
+			}
+		}
+
+		if (!segmentFound)
+		{
+			const auto& lastCP = controlPoints[_numTFControlPoints - 1];
+			tfColorsBuffer[colorIndex] = lastCP.rgb.x;
+			tfColorsBuffer[colorIndex + 1] = lastCP.rgb.y;
+			tfColorsBuffer[colorIndex + 2] = lastCP.rgb.z;
+			tfColorsBuffer[colorIndex + 3] = lastCP.value_opacity.y;
+		}
+		//*/
+	}
+	_transferFunctionImage = cl::Image1D(_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, cl::ImageFormat(CL_RGBA, CL_FLOAT), resolution, tfColorsBuffer);
+
+	delete[] tfColorsBuffer;
+	delete[] controlPoints;
+
+	requestBuffersUpdate();
+}
+
+void OpenCLVolumeRenderer::render()
+{
+	if (!_renderingStatus) return;
+	if (!_updateRequested) return;
+	if (_vdata == nullptr) return;
+	if (_numTFControlPoints < 2) return;
+
+	mainRenderPass();
+	ssaoPass();
+	postProcessingPass();	
 
 	_updateRequested = false;
 }
